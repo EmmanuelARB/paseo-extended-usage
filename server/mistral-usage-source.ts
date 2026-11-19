@@ -1,4 +1,4 @@
-// server/usage-source.ts
+// server/mistral-usage-source.ts
 //
 // Registers the "mistral-usage" usage source so Paseo renders the Mistral plan
 // budget in its native Usage modal card and agent popover. Paseo owns all UI:

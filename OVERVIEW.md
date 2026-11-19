@@ -1,19 +1,20 @@
-# Mistral usage
+# Extended usage
 
-Shows your Mistral plan budget in Paseo's native Usage modal card and in the agent popover, exactly where Claude usage already appears. Paseo renders everything; this plugin only supplies the numbers.
+Adds usage sources to Paseo's native Usage UI for accounts the built-in sources do not cover. Paseo renders the cards and popovers; this plugin only reads credentials and vendor billing APIs on the daemon machine.
 
-## How it works
+## What it shows
 
-The plugin runs on the daemon and reads the Mistral sign-in that the Pi harness stores in `~/.pi/agent/auth.json`. It never writes that file and never logs the token. With that token it calls two free Mistral platform reads, `GET /v1/billing/budget` and `GET /v1/billing/subscription`, and maps them to a usage report: the Vibe plan budget appears as a percent window with its reset date, and the remaining EUR amount appears as a detail line such as "Vibe: €11.85 of €18.00 left".
+**Mistral plan budget.** The Vibe plan budget appears as a percent window with its reset date, with the remaining EUR amount as a detail line such as "Vibe: €11.85 of €18.00 left", the pay-as-you-go state, and the plan name. The agent popover appears on Pi sessions running a Mistral model. Requires Pi signed in to Mistral on the daemon machine.
+
+**Claude usage on bridged Pi sessions.** Paseo's built-in Claude source claims Pi sessions only when the model id starts with "anthropic/". This plugin claims sessions running models through a bridged provider such as "claude-bridge/…" and reports the same Claude subscription usage: session, weekly, and model-scoped weekly windows. It adds no card to the Usage modal, since the built-in Claude source already lists those logins. Requires a Claude login in Claude Code's store or Pi's own auth store.
 
 ## Setup
 
-Requires Paseo 0.16.2 or later. Sign in to Mistral from Pi on the daemon machine first, so `~/.pi/agent/auth.json` contains a Mistral access token. No other configuration is needed.
+Requires Paseo 0.16.2 or later. No settings; each source finds its own login stores. Tokens are read-only, re-read on every fetch, never written, and never logged.
 
-## Capabilities and limits
+## Limits
 
-- The agent popover claims the account on Pi sessions running a Mistral model only. Agents on other providers or models show nothing from this source.
 - Reports are cached for five minutes by Paseo, so fresh spending may take a few minutes to appear.
-- Budgets in EUR or GBP are shown as detail lines because the native balance unit only supports USD. A native USD balance is added only when the budget currency is actually USD.
-- HTTP 402 with budget numbers still renders: an exhausted budget is data, colored by the native tone system.
+- Budgets in EUR or GBP are shown as detail lines because the native balance unit only supports USD.
 - Missing or expired tokens show an expired card; rejected credentials show a rejected card; network or parse failures show an error on the card.
+- The Claude window mapping follows the built-in Claude usage source, minus the macOS Keychain path.
