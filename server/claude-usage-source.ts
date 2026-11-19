@@ -44,11 +44,6 @@ const CLAUDE_BRIDGE_MODEL_PREFIX = "claude-bridge/";
 
 async function discover(scope: UsageScope): Promise<UsageAccount[]> {
   if (scope.kind === "global") return [];
-  // Diagnostic: log what the daemon passes for this session. Env values stay
-  // unread; provider and model are not credentials.
-  console.log(
-    `[claude-bridge] session discovery: provider=${JSON.stringify(scope.provider)} model=${JSON.stringify(scope.model ?? null)}`,
-  );
   // Shape 1: a Pi session running a claude-bridge model (provider "pi",
   // model "claude-bridge/claude-…").
   const piSessionWithBridgeModel =
