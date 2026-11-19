@@ -5,8 +5,10 @@
   "files": [
     "paseo-plugin.json",
     "OVERVIEW.md",
+    "README.md",
     "index.server.ts",
-    "server/"
+    "server/",
+    "icons/"
   ],
   "scripts": {
     "typecheck": "tsc --noEmit"

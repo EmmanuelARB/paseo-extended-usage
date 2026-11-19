@@ -152,6 +152,7 @@ export function registerMistralUsageSource(server: PluginServerContext): void {
   const source: UsageSourceRegistration = {
     id: "mistral-usage",
     label: "Mistral",
+    icon: "icons/mistral.svg",
     input: z.object({ store: z.literal("pi-auth-mistral") }).strict(),
     discover,
     fetch: fetchReport,

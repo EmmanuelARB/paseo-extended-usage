@@ -62,6 +62,7 @@ export function registerPiOpencodeGoUsageSource(server: PluginServerContext): vo
   const source: UsageSourceRegistration = {
     id: "pi-opencode-go",
     label: "OpenCode Go (Pi)",
+    icon: "icons/opencode.svg",
     input: z.object({ store: z.literal("pi-auth-opencode-go") }).strict(),
     discover,
     fetch: fetchReport,
