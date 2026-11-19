@@ -4,9 +4,10 @@
 // budget in its native Usage modal card and agent popover. Paseo owns all UI:
 // this file only feeds it a UsageReport.
 //
-// Windows carry percent + reset date (tone-colored) because UsageBalance.unit
-// has no EUR member; EUR amounts go in details lines instead. A usd balance is
-// added only when the budget currency actually is USD.
+// The Vibe budget becomes a percent window (tone-colored, with its reset
+// date) because UsageBalance.unit has no EUR member; EUR amounts go in
+// details lines instead. A usd balance is added only when the budget
+// currency actually is USD.
 
 import { z } from "zod";
 import type { PluginServerContext } from "@getpaseo/plugin/server";
@@ -39,6 +40,10 @@ const ACCOUNT: Omit<UsageAccount, "input"> = {
 
 const EXPIRED_MISSING_SINCE = new Date(0).toISOString();
 
+// Pi's Mistral provider IDs: the current `mistral` and the deprecated
+// `mistral-subscription`. Session models look like "mistral/mistral-large-4".
+const MISTRAL_MODEL_PREFIXES = ["mistral/", "mistral-subscription/"] as const;
+
 const CURRENCY_SYMBOLS: Record<string, string> = { EUR: "€", USD: "$", GBP: "£" };
 
 function formatAmount(amount: number, currency: string): string {
@@ -51,48 +56,19 @@ function remainingAmount(usage: BudgetUsage): number {
   return usage.initial * (1 - usage.usedPct / 100);
 }
 
+function isMistralSession(scope: UsageScope): boolean {
+  if (scope.kind !== "session" || scope.provider !== "pi") return false;
+  const model = scope.model;
+  return model !== undefined && MISTRAL_MODEL_PREFIXES.some((prefix) => model.startsWith(prefix));
+}
+
 async function discover(scope: UsageScope): Promise<UsageAccount[]> {
-  // Session discovery feeds the agent popover. Pi runs on the Mistral
-  // subscription, so every Pi session claims the account; other providers
-  // return [] rather than throwing.
-  if (scope.kind === "session" && scope.provider !== "pi") return [];
+  // Session discovery feeds the agent popover. Claim only Pi sessions that
+  // actually run a Mistral model; other providers and models return []
+  // rather than throwing. Global discovery still lists the account, so the
+  // Usage modal card shows the plan budget everywhere.
+  if (scope.kind === "session" && !isMistralSession(scope)) return [];
   return [{ ...ACCOUNT, input: ACCOUNT_INPUT }];
-}
-
-function budgetWindow(usage: BudgetUsage, id: "vibe-monthly" | "api-monthly", label: string, shortLabel: string, summary: boolean) {
-  return windowFromUsedPct({
-    id,
-    label,
-    shortLabel,
-    summary,
-    utilizationPct: usage.usedPct,
-    resetsAt: usage.resetAt,
-    tone: toneFromUsedPct(usage.usedPct),
-  });
-}
-
-function remainingDetail(usage: BudgetUsage, id: "vibe-remaining" | "api-remaining", label: string): UsageDetail {
-  return {
-    id,
-    label,
-    value: `${formatAmount(remainingAmount(usage), usage.currency)} of ${formatAmount(usage.initial, usage.currency)} left`,
-    tone: balanceToneFromRemaining(remainingAmount(usage)),
-  };
-}
-
-function usdBalance(usage: BudgetUsage, id: "vibe-balance" | "api-balance", label: string): UsageBalance {
-  const remaining = remainingAmount(usage);
-  const used = usage.initial - remaining;
-  return {
-    id,
-    label,
-    used,
-    remaining,
-    limit: usage.initial,
-    unit: "usd",
-    resetsAt: usage.resetAt,
-    tone: balanceToneFromRemaining(remaining),
-  };
 }
 
 async function fetchReport(): Promise<UsageReport> {
@@ -112,31 +88,23 @@ async function fetchReport(): Promise<UsageReport> {
     return { status: "error", error: read.failure.message };
   }
 
-  const { vibe, api, plan, payAsYouGoEnabled } = read.billing;
-  if (vibe === null && api === null) {
+  const { vibe, plan, payAsYouGoEnabled } = read.billing;
+  if (vibe === null) {
     return unavailable({
       kind: "no_quota",
-      detail: "No Mistral budget is visible for this account",
+      detail: "No Mistral plan budget is visible for this account",
     });
   }
 
-  const windows = [];
-  const details: UsageDetail[] = [];
-  const balances: UsageBalance[] = [];
-  if (vibe !== null) {
-    windows.push(budgetWindow(vibe, "vibe-monthly", "Vibe budget", "Vibe", true));
-    details.push(remainingDetail(vibe, "vibe-remaining", "Vibe"));
-    if (vibe.currency.toUpperCase() === "USD") {
-      balances.push(usdBalance(vibe, "vibe-balance", "Vibe budget"));
-    }
-  }
-  if (api !== null) {
-    windows.push(budgetWindow(api, "api-monthly", "API budget", "API", false));
-    details.push(remainingDetail(api, "api-remaining", "API"));
-    if (api.currency.toUpperCase() === "USD") {
-      balances.push(usdBalance(api, "api-balance", "API budget"));
-    }
-  }
+  const remaining = remainingAmount(vibe);
+  const details: UsageDetail[] = [
+    {
+      id: "vibe-remaining",
+      label: "Vibe",
+      value: `${formatAmount(remaining, vibe.currency)} of ${formatAmount(vibe.initial, vibe.currency)} left`,
+      tone: balanceToneFromRemaining(remaining),
+    },
+  ];
   if (payAsYouGoEnabled !== null) {
     details.push({
       id: "payg",
@@ -145,10 +113,36 @@ async function fetchReport(): Promise<UsageReport> {
     });
   }
 
+  const balances: UsageBalance[] =
+    vibe.currency.toUpperCase() === "USD"
+      ? [
+          {
+            id: "vibe-balance",
+            label: "Mistral plan",
+            used: vibe.initial - remaining,
+            remaining,
+            limit: vibe.initial,
+            unit: "usd",
+            resetsAt: vibe.resetAt,
+            tone: balanceToneFromRemaining(remaining),
+          },
+        ]
+      : [];
+
   return {
     status: "available",
     planLabel: plan ?? undefined,
-    windows,
+    windows: [
+      windowFromUsedPct({
+        id: "vibe-monthly",
+        label: "Vibe budget",
+        shortLabel: "Vibe",
+        summary: true,
+        utilizationPct: vibe.usedPct,
+        resetsAt: vibe.resetAt,
+        tone: toneFromUsedPct(vibe.usedPct),
+      }),
+    ],
     balances,
     details,
   };

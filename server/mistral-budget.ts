@@ -31,7 +31,6 @@ export type MistralBilling = {
   plan: string | null;
   payAsYouGoEnabled: boolean | null;
   vibe: BudgetUsage | null;
-  api: BudgetUsage | null;
 };
 
 export type TokenState =
@@ -137,7 +136,7 @@ export async function fetchMistralBilling(token: string): Promise<BillingRead> {
   if (subscriptionRead !== null && (subscriptionRead.status === 401 || subscriptionRead.status === 403)) {
     return { ok: false, failure: { kind: "rejected", status: subscriptionRead.status } };
   }
-  // HTTP 402 keeps its payload: exhausted budgets are still data, and a
+  // HTTP 402 keeps its payload: an exhausted budget is still data, and a
   // payment-required body without numbers has no visible quota left. Any
   // other failing status means the read carried nothing usable.
   if (budgetRead.status >= 400 && budgetRead.status !== 402) {
@@ -149,7 +148,6 @@ export async function fetchMistralBilling(token: string): Promise<BillingRead> {
 
   const payload = isRecord(budgetRead.payload) ? budgetRead.payload : {};
   const vibe = isRecord(payload.vibe_budget) ? parseUsage(payload.vibe_budget) : null;
-  const api = isRecord(payload.api_budget) ? parseUsage(payload.api_budget) : null;
 
   const subscription = subscriptionRead !== null && isRecord(subscriptionRead.payload)
     ? subscriptionRead.payload
@@ -163,7 +161,6 @@ export async function fetchMistralBilling(token: string): Promise<BillingRead> {
       plan: typeof planName === "string" && planName.length > 0 ? planName : null,
       payAsYouGoEnabled: typeof payAsYouGo === "boolean" ? payAsYouGo : null,
       vibe,
-      api,
     },
   };
 }
