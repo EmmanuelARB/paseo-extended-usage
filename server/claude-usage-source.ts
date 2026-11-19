@@ -44,9 +44,21 @@ const CLAUDE_BRIDGE_MODEL_PREFIX = "claude-bridge/";
 
 async function discover(scope: UsageScope): Promise<UsageAccount[]> {
   if (scope.kind === "global") return [];
-  if (scope.provider !== "pi") return [];
-  const model = scope.model;
-  if (model === undefined || !model.startsWith(CLAUDE_BRIDGE_MODEL_PREFIX)) return [];
+  // Diagnostic: log what the daemon passes for this session. Env values stay
+  // unread; provider and model are not credentials.
+  console.log(
+    `[claude-bridge] session discovery: provider=${JSON.stringify(scope.provider)} model=${JSON.stringify(scope.model ?? null)}`,
+  );
+  // Shape 1: a Pi session running a claude-bridge model (provider "pi",
+  // model "claude-bridge/claude-…").
+  const piSessionWithBridgeModel =
+    scope.provider === "pi" &&
+    scope.model !== undefined &&
+    scope.model.startsWith(CLAUDE_BRIDGE_MODEL_PREFIX);
+  // Shape 2: a custom Paseo provider named claude-bridge that wraps the Pi
+  // harness; the bridge shows up as the session provider itself.
+  const bridgeProvider = scope.provider === "claude-bridge";
+  if (!piSessionWithBridgeModel && !bridgeProvider) return [];
   return [{ ...ACCOUNT, input: ACCOUNT_INPUT }];
 }
 
