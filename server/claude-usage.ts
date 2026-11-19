@@ -146,9 +146,25 @@ async function readPiAnthropicLogin(): Promise<ClaudeLogin | null> {
   };
 }
 
-/** Claude Code's store first, then Pi's anthropic login. */
-export async function resolveClaudeLogin(): Promise<ClaudeLogin | null> {
-  return (await readClaudeCodeLogin()) ?? (await readPiAnthropicLogin());
+export type ClaudeLogins = {
+  /** Claude Code's own store, which also carries the subscription tier. */
+  claudeCode: ClaudeLogin | null;
+  /** Pi's anthropic login, actively refreshed by the harness. */
+  pi: ClaudeLogin | null;
+};
+
+/** Both stores, read fresh from disk. Neither token is written or logged. */
+export async function resolveClaudeLogins(): Promise<ClaudeLogins> {
+  const [claudeCode, pi] = await Promise.all([readClaudeCodeLogin(), readPiAnthropicLogin()]);
+  return { claudeCode, pi };
+}
+
+/** Candidates in preference order, skipping logins expired by their own store. */
+export function claudeLoginCandidates(logins: ClaudeLogins): ClaudeLogin[] {
+  const now = Date.now();
+  const fresh = (login: ClaudeLogin | null): login is ClaudeLogin =>
+    login !== null && (login.expires === null || login.expires > now);
+  return [logins.claudeCode, logins.pi].filter(fresh);
 }
 
 export function buildClaudePlan(

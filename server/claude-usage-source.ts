@@ -9,6 +9,12 @@
 // Global discovery returns [] deliberately: the built-in Claude source
 // already lists these logins in the Usage modal, and a second card would
 // duplicate it. This source exists for the session popover alone.
+//
+// Credentials try Claude Code's store first (it carries the subscription
+// tier), then Pi's anthropic login. A login expired by its own store is
+// skipped, and a 401/403 from the usage API falls through to the next
+// candidate, because Claude Code's file can hold a stale token: its CLI
+// refreshes lazily, so presence alone proves nothing.
 
 import { z } from "zod";
 import type { PluginServerContext } from "@getpaseo/plugin/server";
@@ -18,7 +24,12 @@ import {
   type UsageScope,
   type UsageSourceRegistration,
 } from "@getpaseo/plugin/server/usage";
-import { fetchClaudeUsage, resolveClaudeLogin } from "./claude-usage";
+import {
+  claudeLoginCandidates,
+  fetchClaudeUsage,
+  resolveClaudeLogins,
+  type ClaudeLogin,
+} from "./claude-usage";
 
 // Never a credential: it names the login stores, nothing else.
 const ACCOUNT_INPUT = { store: "claude-bridge" } as const;
@@ -39,12 +50,32 @@ async function discover(scope: UsageScope): Promise<UsageAccount[]> {
   return [{ ...ACCOUNT, input: ACCOUNT_INPUT }];
 }
 
+/** Every candidate in order until one reports something other than rejected. */
+async function fetchWithFallback(candidates: ClaudeLogin[]): Promise<UsageReport> {
+  let last: UsageReport | null = null;
+  for (const login of candidates) {
+    const report = await fetchClaudeUsage(login);
+    if (report.status === "unavailable" && report.problem.kind === "rejected") {
+      last = report;
+      continue;
+    }
+    return report;
+  }
+  return last ?? { status: "error", error: "No Claude login to read" };
+}
+
 async function fetchReport(): Promise<UsageReport> {
-  const login = await resolveClaudeLogin();
-  if (login === null) {
+  const logins = await resolveClaudeLogins();
+  const candidates = claudeLoginCandidates(logins);
+  if (candidates.length > 0) return fetchWithFallback(candidates);
+
+  // No candidate is fresh: report the primary login's state (expired, or
+  // rejected when the store claims no expiry but the token is dead).
+  const fallback = logins.claudeCode ?? logins.pi;
+  if (fallback === null) {
     throw new Error("No Claude login found in Claude Code's store or Pi's auth store");
   }
-  return fetchClaudeUsage(login);
+  return fetchClaudeUsage(fallback);
 }
 
 export function registerClaudeBridgeUsageSource(server: PluginServerContext): void {
