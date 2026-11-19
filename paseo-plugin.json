@@ -1,0 +1,8 @@
+{
+  "id": "mistral-usage",
+  "name": "Mistral usage",
+  "description": "Shows your Mistral plan budget (Vibe and API, in EUR) in Paseo's native Usage modal and agent popover, next to Claude usage.",
+  "requirements": {
+    "paseo": ">=0.16.2"
+  }
+}
