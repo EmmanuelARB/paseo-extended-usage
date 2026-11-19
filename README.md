@@ -8,6 +8,8 @@ A server-only [Paseo](https://paseo.sh) plugin that feeds Paseo's **native Usage
 
 **Claude usage on bridged sessions (`claude-bridge` source).** Paseo's built-in Claude source claims Pi sessions only when the model id starts with `anthropic/`. If you run Anthropic models through a bridged provider (for example `claude-bridge/claude-…`), the popover stays empty even though the Claude login exists. This source claims those sessions and reports the same Claude subscription usage the built-in source would: session (5h) and weekly windows plus any model-scoped weekly limits, from `GET https://api.anthropic.com/api/oauth/usage`. Credentials resolve from Claude Code's own store first (`~/.claude/.credentials.json`, which also carries the subscription tier for the card label), falling back to Pi's `anthropic` login in `~/.pi/agent/auth.json`. A login expired by its own store is skipped outright, and a 401/403 falls through to the next candidate, because Claude Code's file can hold a stale token: its CLI refreshes lazily, so the file's presence proves nothing about its validity. It deliberately contributes no global card, because the built-in Claude source already lists those logins in the Usage modal.
 
+**OpenCode Go usage for Pi sessions (`pi-opencode-go` source).** Paseo's built-in OpenCode Go source is global-only and reads the OpenCode CLI's own store, so no session ever gets a popover. This source reads the OpenCode Go API key the Pi harness stores in `~/.pi/agent/auth.json` (`opencode-go.key`) and claims Pi sessions running `opencode-go/…` models (or a custom `opencode-go` provider), reporting the rolling, weekly, and monthly percent windows from `GET https://opencode.ai/zen/go/v1/usage`. The Usage modal gains an "OpenCode Go (Pi)" card only when Pi's key exists; the built-in card appears beside it if the OpenCode CLI is also configured.
+
 ## Security and limits
 
 - Tokens are read-only: re-read from disk on every fetch, never written, never logged. Error messages carry HTTP statuses only.
@@ -33,5 +35,7 @@ server/mistral-budget.ts       token read + Mistral billing reads + defensive pa
 server/mistral-usage-source.ts registration and report mapping for the Mistral plan
 server/claude-usage.ts         Claude credential resolution + usage fetch + window mapping
 server/claude-usage-source.ts  registration and session discovery for claude-bridge
+server/opencode-go-usage.ts        Pi key read + OpenCode Go usage fetch + window mapping
+server/opencode-go-usage-source.ts registration and discovery for Pi OpenCode Go sessions
 OVERVIEW.md           registry listing page
 ```

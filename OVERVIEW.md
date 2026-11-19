@@ -8,6 +8,8 @@ Adds usage sources to Paseo's native Usage UI for accounts the built-in sources 
 
 **Claude usage on bridged Pi sessions.** Paseo's built-in Claude source claims Pi sessions only when the model id starts with "anthropic/". This plugin claims sessions running models through a bridged provider such as "claude-bridge/…" and reports the same Claude subscription usage: session, weekly, and model-scoped weekly windows. It adds no card to the Usage modal, since the built-in Claude source already lists those logins. Requires a Claude login in Claude Code's store or Pi's own auth store.
 
+**OpenCode Go usage for Pi sessions.** The rolling, weekly, and monthly quota windows appear on Pi sessions running an OpenCode Go model, read from the key Pi stores. The Usage modal gains a card when Pi's key exists. Requires Pi signed in to OpenCode Go on the daemon machine.
+
 ## Setup
 
 Requires Paseo 0.16.2 or later. No settings; each source finds its own login stores. Tokens are read-only, re-read on every fetch, never written, and never logged.
