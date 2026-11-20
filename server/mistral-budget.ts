@@ -55,7 +55,9 @@ function finiteNumber(value: unknown): number | null {
 }
 
 function accessToken(mistral: Record<string, unknown>): string | null {
-  const token = mistral.access;
+  // OAuth sign-in stores `access`; an api_key login stores `key`. Both
+  // authorize the billing reads, so accept either.
+  const token = mistral.access ?? (mistral.type === "api_key" ? mistral.key : null);
   return typeof token === "string" && token.length > 0 ? token : null;
 }
 
