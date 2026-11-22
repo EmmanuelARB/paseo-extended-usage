@@ -21,6 +21,8 @@ import {
   type UsageWindow,
 } from "@getpaseo/plugin/server/usage";
 
+import { MONTH_MS, WEEK_MS, withRunsOutForecast } from "./usage-forecast";
+
 const USAGE_URL = "https://opencode.ai/zen/go/v1/usage";
 
 // Re-read on every fetch: never cache the key.
@@ -73,12 +75,14 @@ const GO_WINDOWS: ReadonlyArray<{
   id: string;
   label: string;
   shortLabel: string;
+  /** Null when the length is not reported, so no forecast is made. */
+  durationMs: number | null;
 }> = [
   // The rolling window's length is not reported, so its percent stands
   // without a short name, as in the built-in source.
-  { field: "rolling", id: "rolling", label: "Rolling", shortLabel: "" },
-  { field: "weekly", id: "weekly", label: "Weekly", shortLabel: "wk" },
-  { field: "monthly", id: "monthly", label: "Monthly", shortLabel: "mo" },
+  { field: "rolling", id: "rolling", label: "Rolling", shortLabel: "", durationMs: null },
+  { field: "weekly", id: "weekly", label: "Weekly", shortLabel: "wk", durationMs: WEEK_MS },
+  { field: "monthly", id: "monthly", label: "Monthly", shortLabel: "mo", durationMs: MONTH_MS },
 ];
 
 /** OpenCode Go quota windows for the given key. */
@@ -116,15 +120,18 @@ export async function fetchGoUsage(key: string): Promise<UsageReport> {
     const window = parseWindow(usage[spec.field]);
     if (window === null) continue;
     windows.push(
-      windowFromUsedPct({
-        id: spec.id,
-        label: spec.label,
-        // An empty short label shows the percent alone, matching the built-in.
-        ...(spec.shortLabel !== "" ? { shortLabel: spec.shortLabel } : {}),
-        utilizationPct: window.percent,
-        resetsAt: window.resetsAt,
-        tone: toneFromUsedPct(window.percent),
-      }),
+      withRunsOutForecast(
+        windowFromUsedPct({
+          id: spec.id,
+          label: spec.label,
+          // An empty short label shows the percent alone, matching the built-in.
+          ...(spec.shortLabel !== "" ? { shortLabel: spec.shortLabel } : {}),
+          utilizationPct: window.percent,
+          resetsAt: window.resetsAt,
+          tone: toneFromUsedPct(window.percent),
+        }),
+        spec.durationMs,
+      ),
     );
   }
   if (windows.length === 0) {

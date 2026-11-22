@@ -24,6 +24,8 @@ import {
   type UsageWindow,
 } from "@getpaseo/plugin/server/usage";
 
+import { FIVE_HOURS_MS, WEEK_MS, withRunsOutForecast } from "./usage-forecast";
+
 const USAGE_URL = "https://api.anthropic.com/api/oauth/usage";
 const CLAUDE_OAUTH_BETA = "oauth-2025-04-20";
 
@@ -198,9 +200,10 @@ const UNSCOPED_WINDOWS: ReadonlyArray<{
   label: string;
   shortLabel: string;
   summary: boolean;
+  durationMs: number;
 }> = [
-  { field: "five_hour", id: "five_hour", label: "Session", shortLabel: "5h", summary: true },
-  { field: "seven_day", id: "weekly", label: "Weekly", shortLabel: "wk", summary: true },
+  { field: "five_hour", id: "five_hour", label: "Session", shortLabel: "5h", summary: true, durationMs: FIVE_HOURS_MS },
+  { field: "seven_day", id: "weekly", label: "Weekly", shortLabel: "wk", summary: true, durationMs: WEEK_MS },
 ];
 
 // Scoped windows from before `limits[]` existed. Declaring the dimension here
@@ -335,15 +338,18 @@ function unscopedWindows(resp: z.infer<typeof ClaudeUsageResponseSchema>): Usage
     const window = resp[spec.field];
     if (!window) continue;
     windows.push(
-      windowFromUsedPct({
-        id: spec.id,
-        label: spec.label,
-        shortLabel: spec.shortLabel,
-        summary: spec.summary,
-        utilizationPct: window.utilization,
-        resetsAt: window.resets_at ?? null,
-        tone: toneFromUsedPct(window.utilization),
-      }),
+      withRunsOutForecast(
+        windowFromUsedPct({
+          id: spec.id,
+          label: spec.label,
+          shortLabel: spec.shortLabel,
+          summary: spec.summary,
+          utilizationPct: window.utilization,
+          resetsAt: window.resets_at ?? null,
+          tone: toneFromUsedPct(window.utilization),
+        }),
+        spec.durationMs,
+      ),
     );
   }
   return windows;
@@ -356,14 +362,17 @@ function scopedWindows(limits: ScopedLimit[]): UsageWindow[] {
     taken.add(id);
     // Emitted even at 0%: a zero bar answers "how much of this model have I
     // used", and the bar must not come and go between refreshes.
-    return windowFromUsedPct({
-      id,
-      label: `Weekly \u00b7 ${limit.name}`,
-      shortLabel: `wk ${limit.name}`,
-      utilizationPct: limit.usedPct,
-      resetsAt: limit.resetsAt,
-      tone: toneFromUsedPct(limit.usedPct),
-    });
+    return withRunsOutForecast(
+      windowFromUsedPct({
+        id,
+        label: `Weekly \u00b7 ${limit.name}`,
+        shortLabel: `wk ${limit.name}`,
+        utilizationPct: limit.usedPct,
+        resetsAt: limit.resetsAt,
+        tone: toneFromUsedPct(limit.usedPct),
+      }),
+      WEEK_MS,
+    );
   });
 }
 

@@ -89,6 +89,7 @@ export function registerClaudeBridgeUsageSource(server: PluginServerContext): vo
   const source: UsageSourceRegistration = {
     id: "claude-bridge",
     label: "Claude (claude-bridge)",
+    icon: "icons/claude.svg",
     input: z.object({ store: z.literal("claude-bridge") }).strict(),
     discover,
     fetch: fetchReport,
