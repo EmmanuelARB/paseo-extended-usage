@@ -47,7 +47,7 @@ export function withRunsOutForecast(
 /**
  * Length of the calendar month that ends at `resetsAt`, for plans whose
  * monthly window runs from one reset to the next (Mistral resets on the 1st
- * at 1am). Null when the reset time is unparseable.
+ * at 00:00 GMT, so UTC month arithmetic is exact). Null when the reset time is unparseable.
  */
 export function monthEndingAtMs(resetsAt: string | null | undefined): number | null {
   if (!resetsAt) return null;

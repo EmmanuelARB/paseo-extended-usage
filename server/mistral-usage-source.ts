@@ -144,7 +144,7 @@ async function fetchReport(): Promise<UsageReport> {
           resetsAt: vibe.resetAt,
           tone: toneFromUsedPct(vibe.usedPct),
         }),
-        // Resets on the 1st at 1am, so the window is the month before the reset.
+        // Resets on the 1st at 00:00 GMT, so the window is the month before the reset.
         monthEndingAtMs(vibe.resetAt),
       ),
     ],
