@@ -28,6 +28,7 @@ import {
   readMistralToken,
   type BudgetUsage,
 } from "./mistral-budget";
+import { monthEndingAtMs, withRunsOutForecast } from "./usage-forecast";
 
 // Never a credential: it names the login store, nothing else.
 const ACCOUNT_INPUT = { store: "pi-auth-mistral" } as const;
@@ -133,15 +134,19 @@ async function fetchReport(): Promise<UsageReport> {
     status: "available",
     planLabel: plan ?? undefined,
     windows: [
-      windowFromUsedPct({
-        id: "vibe-monthly",
-        label: "Vibe budget",
-        shortLabel: "Vibe",
-        summary: true,
-        utilizationPct: vibe.usedPct,
-        resetsAt: vibe.resetAt,
-        tone: toneFromUsedPct(vibe.usedPct),
-      }),
+      withRunsOutForecast(
+        windowFromUsedPct({
+          id: "vibe-monthly",
+          label: "Vibe budget",
+          shortLabel: "Vibe",
+          summary: true,
+          utilizationPct: vibe.usedPct,
+          resetsAt: vibe.resetAt,
+          tone: toneFromUsedPct(vibe.usedPct),
+        }),
+        // Resets on the 1st at 1am, so the window is the month before the reset.
+        monthEndingAtMs(vibe.resetAt),
+      ),
     ],
     balances,
     details,

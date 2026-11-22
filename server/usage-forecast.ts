@@ -43,3 +43,17 @@ export function withRunsOutForecast(
     shortfallPct: Math.round((projectedPct - 100) * 10) / 10,
   };
 }
+
+/**
+ * Length of the calendar month that ends at `resetsAt`, for plans whose
+ * monthly window runs from one reset to the next (Mistral resets on the 1st
+ * at 1am). Null when the reset time is unparseable.
+ */
+export function monthEndingAtMs(resetsAt: string | null | undefined): number | null {
+  if (!resetsAt) return null;
+  const end = new Date(resetsAt);
+  if (!Number.isFinite(end.getTime())) return null;
+  const start = new Date(end);
+  start.setUTCMonth(start.getUTCMonth() - 1);
+  return end.getTime() - start.getTime();
+}
